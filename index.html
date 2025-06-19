@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tienda Electro Online</title>
+  <style>
+    :root{
+      --primary:#0077cc;
+      --dark:#222;
+      --light:#f4f4f4;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:Arial,Helvetica,sans-serif;background:var(--light);color:#333;line-height:1.4;}
+    header{background:var(--primary);color:#fff;padding:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;}
+    header h1{font-size:1.6rem;}
+    nav a{color:#fff;margin:0 .75rem;text-decoration:none;font-weight:500;}
+    nav a:hover{text-decoration:underline;}
+    .btn{cursor:pointer;border:none;border-radius:4px;padding:.4rem .8rem;background:var(--primary);color:#fff;font-size:.9rem;}
+    .btn.small{padding:.25rem .5rem;font-size:.8rem;}
+    main{padding:1.5rem;max-width:1200px;margin:auto;}
+    section{margin-bottom:2rem;}
+    #productos .filters{margin-bottom:.75rem;display:flex;gap:.75rem;flex-wrap:wrap;}
+    #productos .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1rem;}
+    .card{background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1);padding:1rem;display:flex;flex-direction:column;}
+    .card img{width:100%;height:160px;object-fit:cover;border-radius:4px;margin-bottom:.5rem;}
+    .card h3{font-size:1.1rem;margin:.25rem 0;}
+    .card p{margin:.25rem 0 .5rem;}
+    footer{text-align:center;background:var(--dark);color:#fff;padding:1rem;font-size:.85rem;}
+    /* Forms */
+    form{display:flex;flex-direction:column;gap:.75rem;max-width:450px;}
+    form input,form select,form textarea{padding:.6rem;font-size:1rem;border:1px solid #ccc;border-radius:4px;}
+    form textarea{min-height:90px;resize:vertical;}
+    /* Modal */
+    .modal{position:fixed;top:0;left:0;width:100%;height:100%;display:none;background:rgba(0,0,0,.5);justify-content:center;align-items:center;z-index:50;}
+    .modal.active{display:flex;}
+    .modal-content{background:#fff;border-radius:8px;padding:1.5rem;max-width:500px;width:90%;}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;}
+    .cart-item{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;}
+    .cart-item img{width:48px;height:48px;object-fit:cover;border-radius:4px;margin-right:.5rem;}
+    .cart-total{font-weight:bold;text-align:right;margin-top:1rem;}
+    .hidden{display:none;}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Tienda Electro Online</h1>
+  <nav>
+    <a href="#inicio">Inicio</a>
+    <a href="#productos">Productos</a>
+    <a href="#vender">Publicar</a>
+    <button id="cartBtn" class="btn small">Carrito (<span id="cartCount">0</span>)</button>
+    <button id="loginBtn" class="btn small"><span id="loginText">Login</span></button>
+  </nav>
+</header>
+
+<main>
+  <section id="inicio">
+    <h2>Bienvenido</h2>
+    <p>Compra y vende electrodomésticos fácilmente. Encuentra ofertas increíbles o publica los productos que ya no necesitas.</p>
+  </section>
+
+  <section id="productos">
+    <h2>Productos</h2>
+    <div class="filters">
+      <button class="btn small filter" data-cat="all">Todos</button>
+      <button class="btn small filter" data-cat="cocina">Cocina</button>
+      <button class="btn small filter" data-cat="lavado">Lavado</button>
+      <button class="btn small filter" data-cat="refrigeracion">Refrigeración</button>
+    </div>
+    <div id="productGrid" class="grid"></div>
+  </section>
+
+  <section id="vender">
+    <h2>Publicar un producto</h2>
+    <form id="publishForm">
+      <input type="text" id="pName" placeholder="Nombre del producto" required>
+      <input type="number" id="pPrice" placeholder="Precio" required>
+      <input type="url" id="pImg" placeholder="URL de la imagen" required>
+      <select id="pCat" required>
+        <option value="">Categoría</option>
+        <option value="cocina">Cocina</option>
+        <option value="lavado">Lavado</option>
+        <option value="refrigeracion">Refrigeración</option>
+      </select>
+      <textarea id="pDesc" placeholder="Descripción" required></textarea>
+      <button type="submit" class="btn">Publicar</button>
+    </form>
+    <p id="publishNote" class="hidden">Inicia sesión para publicar.</p>
+  </section>
+</main>
+
+<footer>
+  &copy; 2025 Tienda Electro Online - Solo demostración educativa
+</footer>
+
+<!-- Modal Carrito -->
+<div id="cartModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Carrito</h3>
+      <button id="closeCart" class="btn small">X</button>
+    </div>
+    <div id="cartItems"></div>
+    <div id="emptyCartMsg">El carrito está vacío.</div>
+    <div id="cartTotal" class="cart-total"></div>
+  </div>
+</div>
+
+<!-- Modal Login -->
+<div id="loginModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Iniciar sesión</h3>
+      <button id="closeLogin" class="btn small">X</button>
+    </div>
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Nombre de usuario" required>
+      <button type="submit" class="btn">Entrar</button>
+    </form>
+  </div>
+</div>
+
+<script>
+/* ----------- Datos iniciales ----------- */
+let products = JSON.parse(localStorage.getItem('products')) || [
+  {id:1,name:"Microondas Digital",price:95000,category:"cocina",image:"https://images.unsplash.com/photo-1601044739318-6c1087c3b7c7?auto=format&fit=crop&w=600&q=60",desc:"Microondas con grill de 25L"},
+  {id:2,name:"Lavarropas 9kg",price:280000,category:"lavado",image:"https://images.unsplash.com/photo-1581578731548-03d4e994bb26?auto=format&fit=crop&w=600&q=60",desc:"Lavarropas automático 1200rpm"},
+  {id:3,name:"Heladera No Frost",price:350000,category:"refrigeracion",image:"https://images.unsplash.com/photo-1567016545649-7e7242ae8957?auto=format&fit=crop&w=600&q=60",desc:"Heladera doble puerta 500L"}
+];
+
+let cart = JSON.parse(localStorage.getItem('cart')) || [];
+let user = localStorage.getItem('user') || null;
+
+/* ----------- Selectores ----------- */
+const grid = document.getElementById('productGrid');
+const cartBtn = document.getElementById('cartBtn');
+const cartModal = document.getElementById('cartModal');
+const closeCart = document.getElementById('closeCart');
+const cartItems = document.getElementById('cartItems');
+const emptyCartMsg = document.getElementById('emptyCartMsg');
+const cartTotal = document.getElementById('cartTotal');
+const cartCount = document.getElementById('cartCount');
+
+const loginBtn = document.getElementById('loginBtn');
+const loginText = document.getElementById('loginText');
+const loginModal = document.getElementById('loginModal');
+const closeLogin = document.getElementById('closeLogin');
+const loginForm = document.getElementById('loginForm');
+
+const publishForm = document.getElementById('publishForm');
+const publishNote = document.getElementById('publishNote');
+
+/* ----------- Render Functions ----------- */
+function renderProducts(filter='all'){
+  grid.innerHTML = '';
+  const filtered = filter==='all'?products:products.filter(p=>p.category===filter);
+  filtered.forEach(p=>{
+    const card = document.createElement('div');
+    card.className='card';
+    card.innerHTML=`
+      <img src="${p.image}" alt="${p.name}">
+      <h3>${p.name}</h3>
+      <p>$ ${p.price.toLocaleString()}</p>
+      <button class="btn small" data-id="${p.id}">Agregar al carrito</button>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderCart(){
+  cartItems.innerHTML='';
+  if(cart.length===0){
+    emptyCartMsg.style.display='block';
+    cartTotal.textContent='';
+  }else{
+    emptyCartMsg.style.display='none';
+    let total=0;
+    cart.forEach(item=>{
+      const prod = products.find(p=>p.id===item.id);
+      total+=prod.price*item.qty;
+      const div=document.createElement('div');
+      div.className='cart-item';
+      div.innerHTML=`
+        <img src="${prod.image}" alt="">
+        <span>${prod.name} x${item.qty}</span>
+        <span>$ ${(prod.price*item.qty).toLocaleString()}</span>
+      `;
+      cartItems.appendChild(div);
+    });
+    cartTotal.textContent='Total: $ '+total.toLocaleString();
+  }
+  cartCount.textContent=cart.reduce((acc,i)=>acc+i.qty,0);
+}
+
+/* ----------- Event Handlers ----------- */
+document.body.addEventListener('click',e=>{
+  if(e.target.matches('.filter')){
+    const cat=e.target.dataset.cat;
+    renderProducts(cat);
+  }
+  if(e.target.matches('.card button')){
+    const id=parseInt(e.target.dataset.id);
+    const existing=cart.find(i=>i.id===id);
+    if(existing){existing.qty++}else{cart.push({id,qty:1})}
+    localStorage.setItem('cart',JSON.stringify(cart));
+    renderCart();
+  }
+});
+
+/* Cart modal */
+cartBtn.onclick=()=>{renderCart();cartModal.classList.add('active');}
+closeCart.onclick=()=>cartModal.classList.remove('active');
+cartModal.onclick=e=>{if(e.target===cartModal)cartModal.classList.remove('active');}
+
+/* Login modal */
+loginBtn.onclick=()=>{
+  if(user){
+    if(confirm('Cerrar sesión de '+user+'?')){
+      localStorage.removeItem('user');
+      user=null;updateAuthUI();
+    }
+  }else{
+    loginModal.classList.add('active');
+  }
+}
+closeLogin.onclick=()=>loginModal.classList.remove('active');
+loginModal.onclick=e=>{if(e.target===loginModal)loginModal.classList.remove('active');}
+
+loginForm.onsubmit=e=>{
+  e.preventDefault();
+  user=document.getElementById('username').value.trim();
+  if(user){
+    localStorage.setItem('user',user);
+    updateAuthUI();
+    loginModal.classList.remove('active');
+  }
+}
+
+/* Update UI based on auth */
+function updateAuthUI(){
+  loginText.textContent = user ? 'Logout ('+user+')':'Login';
+  if(user){
+    publishForm.classList.remove('hidden');
+    publishNote.classList.add('hidden');
+  }else{
+    publishForm.classList.add('hidden');
+    publishNote.classList.remove('hidden');
+  }
+}
+
+/* Publish product */
+publishForm.onsubmit=e=>{
+  e.preventDefault();
+  if(!user){alert('Debes iniciar sesión.');return;}
+  const newProd={
+    id:Date.now(),
+    name:document.getElementById('pName').value,
+    price:parseInt(document.getElementById('pPrice').value),
+    category:document.getElementById('pCat').value,
+    image:document.getElementById('pImg').value,
+    desc:document.getElementById('pDesc').value,
+    owner:user
+  };
+  products.push(newProd);
+  localStorage.setItem('products',JSON.stringify(products));
+  renderProducts();
+  publishForm.reset();
+  alert('Producto publicado!');
+}
+
+/* ----------- Init ----------- */
+renderProducts();
+renderCart();
+updateAuthUI();
+</script>
+</body>
+</html>
